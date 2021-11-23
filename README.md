@@ -37,11 +37,6 @@ The script takes 6 arguments as follows:
   * e.g. ```'10000'```
 * ```--enable_ocr```:experimental feature to match keywords in images using OCR',default=True
   * e.g. ```True```
-parser.add_argument(
-        '--max_files_per_destination',
-        help='The maximum number of files to place in a directory prior to creating a new output directory',
-        default='32766')
-        
   
 ## Uses/Explanation
 
