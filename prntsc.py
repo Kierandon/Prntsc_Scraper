@@ -42,7 +42,8 @@ base = len(code_chars)
 
 # List of strings that should be matched using OCR (pytesseract) - KD
 listOCR = ["pass", "username", "email", "password", "code", "pin number"]
-
+# List of strings that should be removed cus spam
+listToRemove = ["btcx.one","bittr.org", "btc-ex.org", "btc-ex.org", "jamesgr001","BTC to ETH Exchanger login pass", "Trade BTC"]
 
 # Converts digit to a letter based on character codes
 def digit_to_char(digit):
@@ -96,16 +97,20 @@ def get_img(path):
 
 
 def get_ocr(image):
-    keep = False
     imagestring = pytesseract.image_to_string(Image.open(os.path.abspath(image)))
+    for z in listToRemove:
+        if z in imagestring:
+            os.remove(image)
+            print(f"Removed image number {i}/{args.count} with code: {code} as it was in spam filter")
+            return
     for z in listOCR:
         if z in imagestring:
-            keep = True
             print(f"Saved image number {i}/{args.count} with code: {code} as it DID match OCR")
-            break
-    if keep is False:
-        os.remove(image)
-        print(f"Removed image number {i}/{args.count} with code: {code} as it DID NOT match OCR")
+            return
+        else:
+            os.remove(image)
+            print(f"Removed image number {i}/{args.count} with code: {code} as it DID NOT match OCR")
+            return
 
 
 def get_num_files(path):
@@ -117,7 +122,7 @@ if __name__ == '__main__':
     parser.add_argument('--start_code',
                         help='6 or 7 character string made up of lowercase letters and numbers which is '
                              'where the scraper will start. e.g. abcdef -> abcdeg -> abcdeh',
-                        default='10000rt')
+                        default='20kmhev')
 
     parser.add_argument(
         '--resume_from_last',
