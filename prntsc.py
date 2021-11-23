@@ -41,9 +41,9 @@ code_chars = ["0", "1", "2", "3", "4", "5", "6",
 base = len(code_chars)
 
 # List of strings that should be matched using OCR (pytesseract) - KD
-listOCR = ["pass", "username", "email", "password", "code", "pin number", "DB_USER","DB_NAME","DB_PASSWORD","AUTH_KEY","Access key ID","Secret access key","security credentials","AWS Management Console","bitbucket_token","sshkey","secret_key","smtp_pass","wp_home","slack_webhook_uri","imap_server","bitbucket_token","google_maps_api_key","private key","sq0csp","hooks.slack.com","localdb_url","ACCESS_TOKEN","dbpass","CLIENT_SECRET","AIzaSy","mongodb+srv","postgresql://"]
+listOCR = ["pass", "personal information", "username", "email", "password", "code", "pin number", "db_user","db_name","db_password","auth_key","access key id","Secret access key","security credentials","aws management console","bitbucket_token","sshkey","secret_key","smtp_pass","wp_home","slack_webhook_uri","imap_server","bitbucket_token","google_maps_api_key","private key","sq0csp","hooks.slack.com","localdb_url","access_token","dbpass","CLIENT_SECRET","AIzaSy","mongodb+srv","postgresql://"]
 # List of strings that should be removed cus spam
-listToRemove = ["btcx.one","bittr.org", "btc-ex.org", "btc-ex.org", "jamesgr001","BTC to ETH Exchanger login pass", "Trade BTC", "trade-btc.online"]
+listToRemove = ["btcx.one","bittr.org", "btc-ex.org", "btc-ex.org", "jamesgr001","btc to eth Exchanger login pass", "trade btc", "trade-btc.online"]
 
 # Converts digit to a letter based on character codes
 def digit_to_char(digit):
@@ -98,6 +98,7 @@ def get_img(path):
 
 def get_ocr(image):
     imagestring = pytesseract.image_to_string(Image.open(os.path.abspath(image)))
+    imagestring = imagestring.lower()
     for z in listToRemove:
         if z in imagestring:
             os.remove(image)
