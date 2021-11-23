@@ -8,6 +8,11 @@ from urllib.parse import urljoin
 # may require a 'pip install lxml'
 from bs4 import BeautifulSoup
 import os.path
+import pytesseract
+from PIL import Image
+
+# pytesseract.pytesseract.tesseract_cmd = '<path-to-tesseract-bin>'
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 mimetypes.add_type("image/webp", ".webp")
 
@@ -30,16 +35,21 @@ headers = {
 # one to a code i.e. if we have abcdef, we can essentially write abcdef + 1 to get
 # abcdeg, which is the next code.
 # order for prnt.sc appears to be numeric then alphabetic
-code_chars = ["0", "1", "2", "3", "4", "5", "6", 
-              "7", "8", "9"] + list(string.ascii_lowercase) 
+code_chars = ["0", "1", "2", "3", "4", "5", "6",
+              "7", "8", "9"] + list(string.ascii_lowercase)
 
 base = len(code_chars)
+
+# List of strings that should be matched using OCR (pytesseract) - KD
+listOCR = ["pass", "username", "email", "password", "code", "pin number"]
+
 
 # Converts digit to a letter based on character codes
 def digit_to_char(digit):
     if digit < 10:
         return str(digit)
     return chr(ord('a') + digit - 10)
+
 
 # Returns the string representation of a number in a given base.
 # Credit: https://stackoverflow.com/a/2063535
@@ -50,6 +60,7 @@ def str_base(number, base):
     if d > 0:
         return str_base(d, base) + digit_to_char(m)
     return digit_to_char(m)
+
 
 # Returns the next code given the current code
 def next_code(curr_code):
@@ -62,7 +73,8 @@ def get_img_url(code):
     html = requests.get(f"http://prnt.sc/{code}", headers=headers).text
     soup = BeautifulSoup(html, 'lxml')
     img_url = soup.find_all('img', {'class': 'no-click screenshot-image'})
-    return urljoin("https://",img_url[0]['src'])
+    return urljoin("https://", img_url[0]['src'])
+
 
 # Saves image from URL
 def get_img(path):
@@ -73,28 +85,47 @@ def get_img(path):
     response.raise_for_status()
     path = path.with_suffix(mimetypes.guess_extension(response.headers["content-type"]))
     if path.is_file():
-        print(f'Skipping file {path}, as it allready exists')
+        print(f'Skipping file {path}, as it already exists')
     else:
-        #print(f'Writing file {path}')
-        with open(path,'wb') as f:
+        # print(f'Writing file {path}')
+        with open(path, 'wb') as f:
             f.write(response.content)
+            f.close()
+            if args.enable_ocr:
+                get_ocr(path)
+
+
+def get_ocr(image):
+    keep = False
+    imagestring = pytesseract.image_to_string(Image.open(os.path.abspath(image)))
+    for z in listOCR:
+        if z in imagestring:
+            keep = True
+            print(f"Saved image number {i}/{args.count} with code: {code} as it DID match OCR")
+            break
+    if keep is False:
+        os.remove(image)
+        print(f"Removed image number {i}/{args.count} with code: {code} as it DID NOT match OCR")
+
 
 def get_num_files(path):
-    return len([f for f in os.listdir(path)if os.path.isfile(os.path.join(path, f))])
+    return len([f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))])
+
 
 if __name__ == '__main__':
     parser = parser.ArgumentParser()
-    parser.add_argument('--start_code', 
-        help='6 or 7 character string made up of lowercase letters and numbers which is '
-            'where the scraper will start. e.g. abcdef -> abcdeg -> abcdeh',
-        default='10000rt')
+    parser.add_argument('--start_code',
+                        help='6 or 7 character string made up of lowercase letters and numbers which is '
+                             'where the scraper will start. e.g. abcdef -> abcdeg -> abcdeh',
+                        default='10000rt')
 
     parser.add_argument(
         '--resume_from_last',
-        help='If files allready exist in the output get last created/modified and resume from there (if --start_code < lastFile).',
+        help='If files already exist in the output get last created/modified and resume from there (if --start_code < '
+             'lastFile).',
         default=True)
 
-    # set to something like 10 billion to just go forever, or untill we are out of storage
+    # set to something like 10 billion to just go forever, or until we are out of storage
     parser.add_argument(
         '--count',
         help='The number of images to scrape.',
@@ -110,38 +141,49 @@ if __name__ == '__main__':
         help='The maximum number of files to place in a directory prior to creating a new output directory',
         default='32766')
 
+    parser.add_argument(
+        '--enable_ocr',
+        help='experimental feature to match keywords in images using OCR',
+        default=True)
+
     args = parser.parse_args()
 
     output_path = Path(args.output_path)
     output_path.mkdir(exist_ok=True)
     code = args.start_code
-    if(args.resume_from_last):
+    if args.resume_from_last:
         try:
             code = max(output_path.iterdir(),
                        key=lambda f: int(f.stem, base)).stem
         except ValueError:
             code = args.start_code
-    code = str_base(max(int(code, base)+1, int(args.start_code, base)), base)
+    code = str_base(max(int(code, base) + 1, int(args.start_code, base)), base)
     num_files = get_num_files(output_path)
     print(f"Starting with directory file count of {num_files}")
-    # Scrape images untill --count is reached
+    # Scrape images until --count is reached
     for i in range(int(args.count)):
         try:
-            num_files+=1
-            if (num_files >= (int(args.max_files_per_destination)-1)):
-               try:
-                   output_path_temp_prefix = str(output_path)[:-3] 
-                   output_path_temp_sufix = next_code(str(output_path)[-3:]).zfill(3)
-                   output_path = Path(output_path_temp_prefix + output_path_temp_sufix)
-                   output_path.mkdir(exist_ok=True)
-                   num_files = 1
-               except Exception as e:
-                   print(f"{e} during increment output directory for {output_path}")
-
+            num_files += 1
+            if num_files >= (int(args.max_files_per_destination) - 1):
+                try:
+                    output_path_temp_prefix = str(output_path)[:-3]
+                    output_path_temp_suffix = next_code(str(output_path)[-3:]).zfill(3)
+                    output_path = Path(output_path_temp_prefix + output_path_temp_suffix)
+                    output_path.mkdir(exist_ok=True)
+                    num_files = 1
+                except Exception as e:
+                    print(f"{e} during increment output directory for {output_path}")
             get_img(output_path.joinpath(code))
-            print(f"Saved image number {i}/{args.count} with code: {code} \tcurrent directory file count is expected to be:{num_files}")
-            # print(f"DEBUG:Expected number of files: {(num_files >= (int(args.max_files_per_destination)-1))}")
-            # print(f"DEBUG:Next output path {str(output_path)[:-3] + next_code(str(output_path)[-3:]).zfill(3)}")
+            
+            #only print if OCR is inactive as OCR prints it own message
+            if not args.enable_ocr:
+                print(
+                    f"Saved image number {i}/{args.count} with code: {code} \tcurrent directory file count is expected to "
+                    f"be:{num_files}")
+
+
+        # print(f"DEBUG:Expected number of files: {(num_files >= (int(args.max_files_per_destination)-1))}")
+        # print(f"DEBUG:Next output path {str(output_path)[:-3] + next_code(str(output_path)[-3:]).zfill(3)}")
         except KeyboardInterrupt:
             break
         except Exception as e:
