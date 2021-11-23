@@ -7,11 +7,6 @@ downloadable sharing utility activated by pressing the PrtScn key. It's a very u
 based on a sequential 6 digit code, meaning the 1.3 billion or so images uploaded there can be indexed programmatically quite easily.
 That is what this utility does.
 
-## Pre-downloaded Dataset
-
-I have already published a set of around 13,000 images downloaded from the site [on Kaggle](https://www.kaggle.com/datasnaek/lightshot/home)
-which may be of use if you do not want to use the scraper utility.
-
 ## Pre-requisites
 
 This script was tested on the following python modules, however earlier/later versions may work fine:
@@ -22,11 +17,13 @@ This script was tested on the following python modules, however earlier/later ve
 - beautifulsoup4 4.6.0
 - lxml 3.8.0
 - faker 8.11.0
+- pytesseract 0.3.8 (requires additional binary install)
+- pillow 8.4.0
 ```
 
 ## Using the Script
 
-The script takes 4 arguments as follows:
+The script takes 5 arguments as follows:
 
 * ```--start_code```: 6 or 7 character string made up of lowercase letters and numbers which is where the scraper will start.
   * e.g. ```'lj9me9'```
@@ -38,7 +35,8 @@ The script takes 4 arguments as follows:
   * e.g. ```True```
 * ```--max_files_per_destination ```:The maximum number of files to place in a directory prior to creating a new output directory, default='32766'
   * e.g. ```'10000'```
-
+* ```--enable_ocr```:experimental feature to match keywords in images using OCR',default=True
+  * e.g. ```True```
 parser.add_argument(
         '--max_files_per_destination',
         help='The maximum number of files to place in a directory prior to creating a new output directory',

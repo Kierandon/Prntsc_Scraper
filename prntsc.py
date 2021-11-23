@@ -174,7 +174,7 @@ if __name__ == '__main__':
                 except Exception as e:
                     print(f"{e} during increment output directory for {output_path}")
             get_img(output_path.joinpath(code))
-            
+
             #only print if OCR is inactive as OCR prints it own message
             if not args.enable_ocr:
                 print(
