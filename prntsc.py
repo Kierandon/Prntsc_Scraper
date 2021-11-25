@@ -91,11 +91,7 @@ def get_img(path):
     with open(path, 'wb') as f:
         f.write(response.content)
         f.close()
-        if args.enable_ocr:
-            get_ocr(path)
-        else:
-            print(
-                f"Saved image number {i}/{args.count} with code: {code}")
+        get_ocr(path)
 
 def get_ocr(image):
     imagestring = pytesseract.image_to_string(Image.open(os.path.abspath(image)))
@@ -132,11 +128,6 @@ if __name__ == '__main__':
         '--output_path',
         help='The path where images will be stored.',
         default='output_001/')
-
-    parser.add_argument(
-        '--enable_ocr',
-        help='experimental feature to match keywords in images using OCR',
-        default=True)
 
     args = parser.parse_args()
 
