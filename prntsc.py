@@ -86,15 +86,7 @@ def get_img_url(code):
 
 # Saves image from URL
 def get_img(path):
-<<<<<<< Updated upstream
-    response = requests.get(get_img_url(path.stem), headers=headers)
-    ### zfill makes logical sense, but from some testing prnt.sc 
-    ### does not resolve anything that begins with a 0
-    # not used :: path = path.with_stem(path.stem.zfill(7))
-    response.raise_for_status()
-=======
     response = request_session.get(get_img_url(path.stem), headers=headers)
->>>>>>> Stashed changes
     path = path.with_suffix(mimetypes.guess_extension(response.headers["content-type"]))
     with open(path, 'wb') as f:
         f.write(response.content)
