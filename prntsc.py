@@ -9,13 +9,12 @@ from bs4 import BeautifulSoup
 import os.path
 import pytesseract
 from PIL import Image
-import multiprocessing
 
 # for testing time per download
 import time
 
 # pytesseract.pytesseract.tesseract_cmd = '<path-to-tesseract-bin>'
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+# pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 mimetypes.add_type("image/webp", ".webp")
 
@@ -23,6 +22,7 @@ mimetypes.add_type("image/webp", ".webp")
 # randomly generated using the faker library
 fake = faker.Faker()
 fake.add_provider(faker.providers.user_agent)
+request_session = requests.Session()
 headers = {
     'authority': 'prnt.sc',
     'cache-control': 'max-age=0',
@@ -32,6 +32,7 @@ headers = {
     'accept-encoding': 'gzip, deflate',
     'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8'
 }
+request_session.headers.update(headers)
 
 # List of all possible characters in a prnt.sc code, base stores the length of this.
 # The idea is that we can work in base 36 (length of all lowercase + digits) to add
@@ -78,7 +79,7 @@ def next_code(curr_code):
 
 # Parses the HTML from the prnt.sc page to get the image URL.
 def get_img_url(code):
-    html = request_session.get(f"http://prnt.sc/{code}", headers=headers).text
+    html = request_session.get(f"http://prnt.sc/{code}").text
     soup = BeautifulSoup(html, 'lxml')
     img_url = soup.find_all('img', {'class': 'no-click screenshot-image'})
     return urljoin("https://", img_url[0]['src'])
@@ -86,12 +87,13 @@ def get_img_url(code):
 
 # Saves image from URL
 def get_img(path):
-    response = request_session.get(get_img_url(path.stem), headers=headers)
+    response = request_session.get(get_img_url(path.stem))
     path = path.with_suffix(mimetypes.guess_extension(response.headers["content-type"]))
     with open(path, 'wb') as f:
         f.write(response.content)
         f.close()
         get_ocr(path)
+
 
 def get_ocr(image):
     imagestring = pytesseract.image_to_string(Image.open(os.path.abspath(image)))
@@ -133,10 +135,9 @@ if __name__ == '__main__':
 
     output_path = Path(args.output_path)
     output_path.mkdir(exist_ok=True)
-    code = args.start_code
 
+    code = args.start_code
     code = str_base(max(int(code, base) + 1, int(args.start_code, base)), base)
-    request_session = requests.Session()
     # Scrape images until --count is reached
     for i in range(int(args.count)):
         tic = time.time()
