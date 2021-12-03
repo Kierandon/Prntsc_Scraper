@@ -3,13 +3,12 @@ import mimetypes
 import string
 from pathlib import Path
 import faker
-import requests
+import faster_than_requests as requests
 from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 import os.path
 import pytesseract
 from PIL import Image
-import multiprocessing
 
 # for testing time per download
 import time
@@ -23,16 +22,8 @@ mimetypes.add_type("image/webp", ".webp")
 # randomly generated using the faker library
 fake = faker.Faker()
 fake.add_provider(faker.providers.user_agent)
-headers = {
-    'authority': 'prnt.sc',
-    'cache-control': 'max-age=0',
-    'upgrade-insecure-requests': '1',
-    'user-agent': fake.chrome(),
-    'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
-    'accept-encoding': 'gzip, deflate',
-    'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8'
-}
 
+requests.set_headers([("authority", "prnt.sc"), ("cache-control", "max-age=0"), ("user-agent","fake.chrome()"),("accept","text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8"), ("accept-encoding","gzip, deflate"), ("accept-language","en-GB,en-US;q=0.9,en;q=0.8")])
 # List of all possible characters in a prnt.sc code, base stores the length of this.
 # The idea is that we can work in base 36 (length of all lowercase + digits) to add
 # one to a code i.e. if we have abcdef, we can essentially write abcdef + 1 to get
@@ -42,11 +33,15 @@ code_chars = list(string.ascii_lowercase) + ["0", "1", "2", "3", "4", "5", "6", 
 base = len(code_chars)
 
 # List of strings that should be matched using OCR (pytesseract) - KD
-listOCR = ["pass", "client details", "ssn", "personal information", "email", "code", "user", "name",
-           "auth", "sshkey", "personal_data", "wp_home", "imap_server", "private key",]
-
+listOCR = ["pass", "personal information", "username", "email", "password", "code", "pin number", "db_user", "db_name",
+           "db_password", "auth_key", "access key id", "Secret access key", "security credentials",
+           "aws management console",
+           "bitbucket_token", "sshkey", "secret_key", "smtp_pass", "wp_home", "slack_webhook_uri", "imap_server",
+           "bitbucket_token", "google_maps_api_key", "private key", "sq0csp", "hooks.slack.com", "localdb_url",
+           "access_token", "dbpass", "CLIENT_SECRET", "AIzaSy", "mongodb+srv", "postgresql://"]
 # List of strings that should be removed cus spam
-listToRemove = ["btcx.one", "bittr.org", "btc-ex", "jamesgr001", "btc to eth", "trade btc", "trade-btc"]
+listToRemove = ["btcx.one", "bittr.org", "btc-ex.org", "btc-ex.org", "jamesgr001", "btc to eth exchanger login pass",
+                "trade btc", "trade-btc.online"]
 
 
 # Converts digit to a letter based on character codes
@@ -74,7 +69,7 @@ def next_code(curr_code):
 
 # Parses the HTML from the prnt.sc page to get the image URL.
 def get_img_url(code):
-    html = request_session.get(f"http://prnt.sc/{code}", headers=headers).text
+    html = requests.get2str((f"http://prnt.sc/{code}"))
     soup = BeautifulSoup(html, 'lxml')
     img_url = soup.find_all('img', {'class': 'no-click screenshot-image'})
     return urljoin("https://", img_url[0]['src'])
@@ -82,7 +77,7 @@ def get_img_url(code):
 
 # Saves image from URL
 def get_img(path):
-    response = request_session.get(get_img_url(path.stem), headers=headers)
+    response = requests.get2str((get_img_url(path.stem)))
     path = path.with_suffix(mimetypes.guess_extension(response.headers["content-type"]))
     with open(path, 'wb') as f:
         f.write(response.content)
@@ -90,7 +85,6 @@ def get_img(path):
         get_ocr(path)
 
 def get_ocr(image):
-    
     imagestring = pytesseract.image_to_string(Image.open(os.path.abspath(image)))
     imagestring = imagestring.lower()
     for z in listToRemove:
@@ -113,13 +107,13 @@ if __name__ == '__main__':
     parser.add_argument('--start_code',
                         help='6 or 7 character string made up of lowercase letters and numbers which is '
                              'where the scraper will start. e.g. abcdef -> abcdeg -> abcdeh',
-                        default='21mb50e')
+                        default='20x2aab')
 
     # set to something like 10 billion to just go forever, or until we are out of storage
     parser.add_argument(
         '--count',
         help='The number of images to scrape.',
-        default='2000000')
+        default='1000000')
 
     parser.add_argument(
         '--output_path',
@@ -136,17 +130,8 @@ if __name__ == '__main__':
     request_session = requests.Session()
     # Scrape images until --count is reached
     for i in range(int(args.count)):
-        try:
-            tic.time()
-            get_img(output_path.joinpath(code))
-            toc.time()
-            print('Done in {:.4f} seconds'.format(toc - tic))
-        except KeyboardInterrupt:
-            break
-        except ConnectionResetError:
-            # Start new sesh if it breaks
-            request_session = requests.Session()
-            break
-        except Exception as e:
-            print(f"{e} with image: {code}")
+        tic = time.time()
+        get_img(output_path.joinpath(code))
         code = next_code(code)
+        toc = time.time()
+        print('Done in {:.4f} seconds'.format(toc - tic))
