@@ -10,12 +10,10 @@ import os.path
 import pytesseract
 from PIL import Image
 import multiprocessing
-
-# for testing time per download
 import time
 
 # pytesseract.pytesseract.tesseract_cmd = '<path-to-tesseract-bin>'
-#pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 mimetypes.add_type("image/webp", ".webp")
 
@@ -74,7 +72,7 @@ def next_code(curr_code):
 
 # Parses the HTML from the prnt.sc page to get the image URL.
 def get_img_url(code):
-    html = request_session.get(f"http://prnt.sc/{code}", headers=headers).text
+    html = requests.get(f"http://prnt.sc/{code}", headers=headers).text
     soup = BeautifulSoup(html, 'lxml')
     img_url = soup.find_all('img', {'class': 'no-click screenshot-image'})
     return urljoin("https://", img_url[0]['src'])
@@ -82,7 +80,7 @@ def get_img_url(code):
 
 # Saves image from URL
 def get_img(path):
-    response = request_session.get(get_img_url(path.stem), headers=headers)
+    response = requests.get(get_img_url(path.stem), headers=headers)
     path = path.with_suffix(mimetypes.guess_extension(response.headers["content-type"]))
     with open(path, 'wb') as f:
         f.write(response.content)
@@ -96,15 +94,15 @@ def get_ocr(image):
     for z in listToRemove:
         if z in imagestring:
             os.remove(image)
-            print(f"Removed image number with code: {code} as it was in spam filter")
+            print(f"Removed image number with code: {os.path.abspath(image)} as it was in spam filter")
             return
     for z in listOCR:
         if z in imagestring:
-            print(f"Saved image number with code: {code} as it DID match OCR")
+            print(f"Saved image number with code: {os.path.abspath(image)} as it DID match OCR")
             return
         else:
             os.remove(image)
-            print(f"Removed image number with code: {code} as it DID NOT match OCR")
+            print(f"Removed image number with code: {os.path.abspath(image)} as it DID NOT match OCR")
             return
 
 
@@ -113,13 +111,13 @@ if __name__ == '__main__':
     parser.add_argument('--start_code',
                         help='6 or 7 character string made up of lowercase letters and numbers which is '
                              'where the scraper will start. e.g. abcdef -> abcdeg -> abcdeh',
-                        default='21mb50e')
+                        default='21kkgyb')
 
     # set to something like 10 billion to just go forever, or until we are out of storage
     parser.add_argument(
         '--count',
         help='The number of images to scrape.',
-        default='2000000')
+        default='1000000')
 
     parser.add_argument(
         '--output_path',
@@ -133,20 +131,47 @@ if __name__ == '__main__':
     code = args.start_code
 
     code = str_base(max(int(code, base) + 1, int(args.start_code, base)), base)
-    request_session = requests.Session()
+
     # Scrape images until --count is reached
-    for i in range(int(args.count)):
-        try:
-            tic.time()
-            get_img(output_path.joinpath(code))
-            toc.time()
-            print('Done in {:.4f} seconds'.format(toc - tic))
-        except KeyboardInterrupt:
-            break
-        except ConnectionResetError:
-            # Start new sesh if it breaks
-            request_session = requests.Session()
-            break
-        except Exception as e:
-            print(f"{e} with image: {code}")
-        code = next_code(code)
+    # = 100000
+    num_of_chunks = int(int(args.count) / 100)
+    # 1000
+    count = 100
+    # run multiprocessing in chunks of 100
+    for i in range(num_of_chunks):
+
+        codes = []
+        for i in range(count-100, count):
+            codes.append(output_path.joinpath(code))
+            code = next_code(code)
+
+        tic = time.time()
+
+        pool = multiprocessing.Pool(16)
+        pool.map(get_img, codes)
+        pool.close()
+
+        count += 100
+
+        toc = time.time()
+        print('Chunk done in {:.4f} seconds'.format(toc - tic))
+
+
+
+
+
+    # for i in range(int(args.count)):
+    #     try:
+    #         tic = time.time()
+    #         get_img(output_path.joinpath(code))
+    #         toc = time.time()
+    #         print('Done in {:.4f} seconds'.format(toc - tic))
+    #     except KeyboardInterrupt:
+    #         break
+    #     except ConnectionResetError:
+    #         # Start new sesh if it breaks
+    #         request_session = requests.Session()
+    #         break
+    #     except Exception as e:
+    #         print(f"{e} with image: {code}")
+    #     code = next_code(code)
