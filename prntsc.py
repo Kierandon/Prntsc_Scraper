@@ -40,9 +40,11 @@ code_chars = list(string.ascii_lowercase) + ["0", "1", "2", "3", "4", "5", "6", 
 base = len(code_chars)
 
 # List of strings that should be matched using OCR (pytesseract) - KD
-listOCR = ["pass", "client details", "ssn", "personal information", "email", "code", "user", "name",
-           "auth", "sshkey", "personal_data", "wp_home", "imap_server", "private key",]
-
+listOCR = ["pass", "personal information", "confidential", "private", "outlook", "gmail", "aol"
+           "ssn", "personal data", "username", "email", "password", "code", "pin number", "db_user", "db_name",
+           "db_password", "auth_key", "access key id", "secret access key", "security credentials",
+            "sshkey", "secret_key", "smtp_pass", "wp_home","security code"
+           "private key", "localdb_url", "access_token", "dbpass", "client_secret", "postgresql://"]
 # List of strings that should be removed cus spam
 listToRemove = ["btcx.one", "bittr.org", "btc-ex", "jamesgr001", "btc to eth", "trade btc", "trade-btc"]
 
@@ -111,7 +113,7 @@ if __name__ == '__main__':
     parser.add_argument('--start_code',
                         help='6 or 7 character string made up of lowercase letters and numbers which is '
                              'where the scraper will start. e.g. abcdef -> abcdeg -> abcdeh',
-                        default='21kkgyb')
+                        default='21magyb')
 
     # set to something like 10 billion to just go forever, or until we are out of storage
     parser.add_argument(
@@ -133,10 +135,9 @@ if __name__ == '__main__':
     code = str_base(max(int(code, base) + 1, int(args.start_code, base)), base)
 
     # Scrape images until --count is reached
-    # = 100000
     num_of_chunks = int(int(args.count) / 100)
-    # 1000
     count = 100
+
     # run multiprocessing in chunks of 100
     for i in range(num_of_chunks):
 
@@ -147,7 +148,7 @@ if __name__ == '__main__':
 
         tic = time.time()
 
-        pool = multiprocessing.Pool(16)
+        pool = multiprocessing.Pool(5)
         pool.map(get_img, codes)
         pool.close()
 
@@ -155,9 +156,6 @@ if __name__ == '__main__':
 
         toc = time.time()
         print('Chunk done in {:.4f} seconds'.format(toc - tic))
-
-
-
 
 
     # for i in range(int(args.count)):
