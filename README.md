@@ -17,8 +17,12 @@ This script was tested on the following python modules, however earlier/later ve
 - beautifulsoup4 4.6.0
 - lxml 3.8.0
 - faker 8.11.0
-- pytesseract 0.3.8 (requires additional binary install)
+- pytesseract 0.3.8 (requires additional binary install on windows https://github.com/UB-Mannheim/tesseract/wiki)
+  if on windows you alse  need to change line 17 to the path of your tesseract install
 - pillow 8.4.0
+
+- multiprocessing
+- time
 ```
 
 ## Using the Script
@@ -27,16 +31,10 @@ The script takes 6 arguments as follows:
 
 * ```--start_code```: 6 or 7 character string made up of lowercase letters and numbers which is where the scraper will start.
   * e.g. ```'lj9me9'```
-* ```--count```: The number of images to scrape.
-  * e.g. ```'200'```
+* ```--count```: The number of images to scrape. Needs to be factor of 100.
+  * e.g. ```'100000'```
 * ```--output_path```: The path where images will be stored.
   * e.g. ```'output_001/```
-* ```--resume_from_last ```:If files allready exist in the output get last created/modified and resume from there, default=True
-  * e.g. ```True```
-* ```--max_files_per_destination ```:The maximum number of files to place in a directory prior to creating a new output directory, default='32766'
-  * e.g. ```'10000'```
-* ```--enable_ocr```:experimental feature to match keywords in images using OCR',default=True
-  * e.g. ```True```
   
 ## Uses/Explanation
 
@@ -44,22 +42,25 @@ It can be very interesting to see what people upload to these sites, generally h
 same applies here. People might not be aware that what they are uploading is visible to others, however prnt.sc/lightshot have
 not shown any inclination in wanting to change their site design.
 
-As a result, this provides a useful way to create datasets of real world images. A useful/interesting use case is building a machine
-learning algorithm to classify images into categories, which requires some manual classification, but is nonetheless interesting
-and a good learning task.
+The OCR systems deletes all files that either match the spam filter, or pass the spamm filter but do not match the keywords.
 
-### Sequential is a poor practice
-     --start_code values on prnt.cs is sequential, so from image context...
-     14akf6 ~ Oct 2013
-     999997 ~ Jan 2015
-     a9998j ~ Feb 2016
-     h4akgb ~ Oct 2017
-     sp2gna ~ May 2020 ;sp2nuo=2020-05-27;sp2v18=2020-05-27;sp2v7o=2020-05-28
-     z4akga ~ Feb 2021
-     10000am ~ Feb 18, 2021; 100001g=2021-02-18;10000rt=2021-02-18-194850
-     1qrrrav ~ Aug 30, 2021
-     1tekpzg ~ Sep 23, 2021
+Spam filter is a list of strings defined as listToRemove
+Keywords to match is a list of strings defined as listOcr
+
+These can be changed to your liking.
+
+
+This script uses multiprocessing with a pool of 5 workers, if you go over 10 you will get IP banned as 10 requests will
+be sent simultaneously.
+
+## TO DO 
      
+-Implement proxy system so pool workers can be greater than 10.
+-Add option to save all files that pass spam filter but don't match OCR, currently only OCR matches are saved at this time
+-Keep images in memory untill needing to be wrote to hard disk for performance reasons
+-Maybe implement OCR differently <- download 200 images, then run OCR, may be more performant
+-Implement exception handling as if anything goes wrong now it will just crash	
+	
 ## Licensing
 
 This project is released under the MIT license, see LICENSE.md for more details.
