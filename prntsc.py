@@ -15,10 +15,10 @@ import time
 # pytesseract.pytesseract.tesseract_cmd = '<path-to-tesseract-bin>'
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
+# Add webp type to mimetypes
 mimetypes.add_type("image/webp", ".webp")
 
-# Standard headers to prevent problems while scraping. They are necessary
-# randomly generated using the faker library
+# Standard headers to prevent problems while scraping. They are randomly generated using the faker library
 fake = faker.Faker()
 fake.add_provider(faker.providers.user_agent)
 headers = {
@@ -90,49 +90,78 @@ def get_img(path):
 
 
 def get_ocr(image):
-    
+
+    # Get absolute path of image, open that image, then use pytesseract to convert that image to a string
     imagestring = pytesseract.image_to_string(Image.open(os.path.abspath(image)))
+
+    # Convert string to lowercase so can be matched with listOCR and listToRemoves
     imagestring = imagestring.lower()
+
+    # For every word in the spam filter
     for z in listToRemove:
+        # If word in the string then remove the image
         if z in imagestring:
             os.remove(image)
-            print(f"Removed image number with code: {os.path.abspath(image)} as it was in spam filter")
+            print(f"Removed image number with code: {os.path.basename(image)} as it was in spam filter")
             return
+    # For every word in listOCR
     for z in listOCR:
+        # If word in the string then keep the image
         if z in imagestring:
-            print(f"Saved image number with code: {os.path.abspath(image)} as it DID match OCR")
+            print(f"Saved image number with code: {os.path.basename(image)} as it DID match OCR")
             return
+        # If save_all is true then save the image
+        elif args.save_all:
+            os.replace(image, 'all_images/' + os.path.basename(image))
+        # Else remove the image
         else:
             os.remove(image)
-            print(f"Removed image number with code: {os.path.abspath(image)} as it DID NOT match OCR")
+            print(f"Removed image number with code: {os.path.basename(image)} as it DID NOT match OCR")
             return
 
 
-if __name__ == '__main__':
-    parser = parser.ArgumentParser()
-    parser.add_argument('--start_code',
-                        help='6 or 7 character string made up of lowercase letters and numbers which is '
-                             'where the scraper will start. e.g. abcdef -> abcdeg -> abcdeh',
-                        default='21magyb')
+# PARSE ARGUMENTS AND MAKE GLOBAL
+parser = parser.ArgumentParser()
+parser.add_argument(
+        '--start_code',
+        help='6 or 7 character string made up of lowercase letters and numbers which is '
+        'where the scraper will start. e.g. abcdef -> abcdeg -> abcdeh',
+        default='21magyp')
 
-    # set to something like 10 billion to just go forever, or until we are out of storage
-    parser.add_argument(
+# set to something like 10 billion to just go forever, or until we are out of storage
+parser.add_argument(
         '--count',
         help='The number of images to scrape.',
-        default='1000000')
+        default='100')
 
-    parser.add_argument(
+parser.add_argument(
         '--output_path',
         help='The path where images will be stored.',
-        default='output_001/')
+        default='output/')
 
-    args = parser.parse_args()
+parser.add_argument(
+        '--save_all',
+        help='Enable saving files that dont match the spam list or the OCR list.',
+        default=False)
 
+global args
+# noinspection PyRedeclaration
+args = parser.parse_args()
+
+# START MAIN PROGRAM
+if __name__ == '__main__':
+
+    # Set output directory according to directory
     output_path = Path(args.output_path)
     output_path.mkdir(exist_ok=True)
-    code = args.start_code
 
-    code = str_base(max(int(code, base) + 1, int(args.start_code, base)), base)
+    # If save_all is enable then create dir for it
+    if args.save_all:
+        all_images_path = Path("all_images")
+        all_images_path.mkdir(exist_ok=True)
+
+    # Set start code according to arg
+    code = args.start_code
 
     # Scrape images until --count is reached
     num_of_chunks = int(int(args.count) / 100)
@@ -141,6 +170,7 @@ if __name__ == '__main__':
     # run multiprocessing in chunks of 100
     for x in range(num_of_chunks):
 
+        # create list of 100 codes
         codes = []
         for y in range(count-99, count):
             codes.append(output_path.joinpath(code))
@@ -157,7 +187,7 @@ if __name__ == '__main__':
         toc = time.time()
         print('Chunk done in {:.4f} seconds'.format(toc - tic))
 
-
+    print('Printing complete')
     # for i in range(int(args.count)):
     #     try:
     #         tic = time.time()

@@ -27,7 +27,7 @@ This script was tested on the following python modules, however earlier/later ve
 
 ## Using the Script
 
-The script takes 6 arguments as follows:
+The script takes 4 arguments as follows:
 
 * ```--start_code```: 6 or 7 character string made up of lowercase letters and numbers which is where the scraper will start.
   * e.g. ```'lj9me9'```
@@ -35,6 +35,8 @@ The script takes 6 arguments as follows:
   * e.g. ```'100000'```
 * ```--output_path```: The path where images will be stored.
   * e.g. ```'output_001/```
+* ```--save_all```: Enable saving files that dont match the spam list or the OCR list.
+  * True or False)  
   
 ## Uses/Explanation
 
