@@ -59,7 +59,7 @@ be sent simultaneously.
 ## TO DO 
 
 * Implement proxy system so pool workers can be greater than 10.
-* Add option to save all files that pass spam filter but don't match OCR, currently only OCR matches are saved at this time
+* ~~Add option to save all files that pass spam filter but don't match OCR, currently only OCR matches are saved at this time~~
 * Keep images in memory until needing to be written to hard disk for performance reasons
 * Maybe implement OCR differently <- download 200 images, then run OCR, may be more performant
 * Implement exception handling as if anything goes wrong now it will just crash	
