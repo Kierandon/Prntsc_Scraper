@@ -40,11 +40,10 @@ code_chars = list(string.ascii_lowercase) + ["0", "1", "2", "3", "4", "5", "6", 
 base = len(code_chars)
 
 # List of strings that should be matched using OCR (pytesseract) - KD
-listOCR = ["pass", "personal information", "confidential", "private", "outlook", "gmail", "aol"
-           "ssn", "personal data", "username", "email", "password", "code", "pin number", "db_user", "db_name",
-           "db_password", "auth_key", "access key id", "secret access key", "security credentials",
-            "sshkey", "secret_key", "smtp_pass", "wp_home","security code"
-           "private key", "localdb_url", "access_token", "dbpass", "client_secret", "postgresql://"]
+# Trying to make this list as small as possible as algo is n^2
+listOCR = ["user", "pass", "confidential", "gmail", "outlook", "ssn", "personal data", "pin number", "db_user",
+           "db_name", "private"]
+
 # List of strings that should be removed cus spam
 listToRemove = ["btcx.one", "bittr.org", "btc-ex", "jamesgr001", "btc to eth", "trade btc", "trade-btc"]
 
@@ -57,12 +56,12 @@ def digit_to_char(digit):
 
 
 # Returns the string representation of a number in a given base. Credit: https://stackoverflow.com/a/2063535
-def str_base(number, base):
+def str_base(number, numberbase):
     if number < 0:
-        return '-' + str_base(-number, base)
-    (d, m) = divmod(number, base)
+        return '-' + str_base(-number, numberbase)
+    (d, m) = divmod(number, numberbase)
     if d > 0:
-        return str_base(d, base) + digit_to_char(m)
+        return str_base(d, numberbase) + digit_to_char(m)
     return digit_to_char(m)
 
 
@@ -73,8 +72,8 @@ def next_code(curr_code):
 
 
 # Parses the HTML from the prnt.sc page to get the image URL.
-def get_img_url(code):
-    html = requests.get(f"http://prnt.sc/{code}", headers=headers).text
+def get_img_url(urlcode):
+    html = requests.get(f"http://prnt.sc/{urlcode}", headers=headers).text
     soup = BeautifulSoup(html, 'lxml')
     img_url = soup.find_all('img', {'class': 'no-click screenshot-image'})
     return urljoin("https://", img_url[0]['src'])
@@ -88,6 +87,7 @@ def get_img(path):
         f.write(response.content)
         f.close()
         get_ocr(path)
+
 
 def get_ocr(image):
     
@@ -139,10 +139,10 @@ if __name__ == '__main__':
     count = 100
 
     # run multiprocessing in chunks of 100
-    for i in range(num_of_chunks):
+    for x in range(num_of_chunks):
 
         codes = []
-        for i in range(count-100, count):
+        for y in range(count-99, count):
             codes.append(output_path.joinpath(code))
             code = next_code(code)
 

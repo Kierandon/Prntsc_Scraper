@@ -44,9 +44,9 @@ not shown any inclination in wanting to change their site design.
 
 The OCR deletes all files that either match the spam filter, or pass the spam filter but do not match the keywords.
 
-Spam filter is a list of strings defined as ```listToRemove``` on line 49.
+Spam filter is a list of strings defined as ```listToRemove```.
 
-Keywords to match is a list of strings defined as ```listOcr``` on line 43.
+Keywords to match is a list of strings defined as ```listOcr```.
 
 These lists can be changed to match/reject any value.
 
