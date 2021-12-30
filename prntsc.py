@@ -11,6 +11,9 @@ import pytesseract
 from PIL import Image
 import multiprocessing
 import time
+import shutil
+from time import perf_counter
+
 
 # pytesseract.pytesseract.tesseract_cmd = '<path-to-tesseract-bin>'
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
@@ -40,12 +43,12 @@ code_chars = list(string.ascii_lowercase) + ["0", "1", "2", "3", "4", "5", "6", 
 base = len(code_chars)
 
 # List of strings that should be matched using OCR (pytesseract) - KD
-# Trying to make this list as small as possible as algo is n^2
 listOCR = ["user", "pass", "confidential", "gmail", "outlook", "ssn", "personal data", "pin number", "db_user",
            "db_name", "private"]
 
 # List of strings that should be removed cus spam
-listToRemove = ["btcx.one", "bittr.org", "btc-ex", "jamesgr001", "btc to eth", "trade btc", "trade-btc"]
+listToRemove = ["btcx.one", "btc-ex", "bittrading", "bittr.org",  "jamesgr001", "btc to eth",
+                "trade btc", "trade-btc"]
 
 
 # Converts digit to a letter based on character codes
@@ -81,18 +84,15 @@ def get_img_url(urlcode):
 
 # Saves image from URL
 def get_img(path):
+    t1_start = perf_counter()
     response = requests.get(get_img_url(path.stem), headers=headers)
     path = path.with_suffix(mimetypes.guess_extension(response.headers["content-type"]))
     with open(path, 'wb') as f:
         f.write(response.content)
         f.close()
-        get_ocr(path)
 
-
-def get_ocr(image):
-
-    # Get absolute path of image, open that image, then use pytesseract to convert that image to a string
-    imagestring = pytesseract.image_to_string(Image.open(os.path.abspath(image)))
+    # open the image, then use pytesseract to convert that image to a string
+    imagestring = pytesseract.image_to_string(Image.open(path))
 
     # Convert string to lowercase so can be matched with listOCR and listToRemoves
     imagestring = imagestring.lower()
@@ -101,22 +101,28 @@ def get_ocr(image):
     for z in listToRemove:
         # If word in the string then remove the image
         if z in imagestring:
-            os.remove(image)
-            print(f"Removed image number with code: {os.path.basename(image)} as it was in spam filter")
+            os.remove(path)
+            t1_stop = perf_counter()
+            print(f"REMOVED {path.name} -> {response.url} - SPAM FILTER - TIME TAKEN {t1_stop-t1_start}")
             return
     # For every word in listOCR
     for z in listOCR:
         # If word in the string then keep the image
         if z in imagestring:
-            print(f"Saved image number with code: {os.path.basename(image)} as it DID match OCR")
+            t1_stop = perf_counter()
+            print(f"Saved image {path.name} -> {response.url} - OCR MATCH, TIME TAKEN {t1_stop-t1_start}")
             return
         # If save_all is true then save the image
         elif args.save_all:
-            os.replace(image, 'all_images/' + os.path.basename(image))
+            t1_stop = perf_counter()
+            shutil.move(path, 'all_images/' + os.path.basename(path))
+            print(f"Saved image {path.name} -> {response.url} - SAVE ALL ENABLED, TIME TAKEN {t1_stop - t1_start}")
+            return
         # Else remove the image
         else:
-            os.remove(image)
-            print(f"Removed image number with code: {os.path.basename(image)} as it DID NOT match OCR")
+            os.remove(path)
+            t1_stop = perf_counter()
+            print(f"Removed image {path.name} -> {response.url} - NO OCR MATCH, TIME TAKEN {t1_stop-t1_start}")
             return
 
 
@@ -126,13 +132,13 @@ parser.add_argument(
         '--start_code',
         help='6 or 7 character string made up of lowercase letters and numbers which is '
         'where the scraper will start. e.g. abcdef -> abcdeg -> abcdeh',
-        default='21magyp')
+        default='25ahkxz')
 
 # set to something like 10 billion to just go forever, or until we are out of storage
 parser.add_argument(
         '--count',
         help='The number of images to scrape.',
-        default='100')
+        default='1000')
 
 parser.add_argument(
         '--output_path',
@@ -142,7 +148,7 @@ parser.add_argument(
 parser.add_argument(
         '--save_all',
         help='Enable saving files that dont match the spam list or the OCR list.',
-        default=False)
+        default=True)
 
 global args
 # noinspection PyRedeclaration
@@ -155,7 +161,7 @@ if __name__ == '__main__':
     output_path = Path(args.output_path)
     output_path.mkdir(exist_ok=True)
 
-    # If save_all is enable then create dir for it
+    # If save_all is enabled then create dir for it
     if args.save_all:
         all_images_path = Path("all_images")
         all_images_path.mkdir(exist_ok=True)
@@ -176,7 +182,7 @@ if __name__ == '__main__':
             codes.append(output_path.joinpath(code))
             code = next_code(code)
 
-        tic = time.time()
+        tic = time.perf_counter()
 
         pool = multiprocessing.Pool(5)
         pool.map(get_img, codes)
@@ -184,22 +190,6 @@ if __name__ == '__main__':
 
         count += 100
 
-        toc = time.time()
-        print('Chunk done in {:.4f} seconds'.format(toc - tic))
-
+        toc = time.perf_counter()
+        print(f'CHUNK COMPLETE IN {toc-tic}')
     print('Printing complete')
-    # for i in range(int(args.count)):
-    #     try:
-    #         tic = time.time()
-    #         get_img(output_path.joinpath(code))
-    #         toc = time.time()
-    #         print('Done in {:.4f} seconds'.format(toc - tic))
-    #     except KeyboardInterrupt:
-    #         break
-    #     except ConnectionResetError:
-    #         # Start new sesh if it breaks
-    #         request_session = requests.Session()
-    #         break
-    #     except Exception as e:
-    #         print(f"{e} with image: {code}")
-    #     code = next_code(code)
