@@ -14,9 +14,9 @@ import time
 import shutil
 from time import perf_counter
 
-
 # pytesseract.pytesseract.tesseract_cmd = '<path-to-tesseract-bin>'
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+pytesseract.pytesseract.tesseract_cmd = r'/usr/bin/tesseract'
+# May need to do 'export OMP_THREAD_LIMIT=1' on linux if experiencing performance issues.
 
 # Add webp type to mimetypes
 mimetypes.add_type("image/webp", ".webp")
@@ -132,13 +132,13 @@ parser.add_argument(
         '--start_code',
         help='6 or 7 character string made up of lowercase letters and numbers which is '
         'where the scraper will start. e.g. abcdef -> abcdeg -> abcdeh',
-        default='25ahkxz')
+        default='24bjh4r')
 
 # set to something like 10 billion to just go forever, or until we are out of storage
 parser.add_argument(
         '--count',
         help='The number of images to scrape.',
-        default='1000')
+        default='1000000')
 
 parser.add_argument(
         '--output_path',
@@ -184,7 +184,7 @@ if __name__ == '__main__':
 
         tic = time.perf_counter()
 
-        pool = multiprocessing.Pool(5)
+        pool = multiprocessing.Pool(6)
         pool.map(get_img, codes)
         pool.close()
 
