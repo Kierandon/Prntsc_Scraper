@@ -15,7 +15,7 @@ import shutil
 from time import perf_counter
 
 # pytesseract.pytesseract.tesseract_cmd = '<path-to-tesseract-bin>'
-pytesseract.pytesseract.tesseract_cmd = r'/usr/bin/tesseract'
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 # May need to do 'export OMP_THREAD_LIMIT=1' on linux if experiencing performance issues.
 
 # Add webp type to mimetypes
@@ -43,7 +43,7 @@ code_chars = list(string.ascii_lowercase) + ["0", "1", "2", "3", "4", "5", "6", 
 base = len(code_chars)
 
 # List of strings that should be matched using OCR (pytesseract) - KD
-listOCR = ["user", "pass", "confidential", "gmail", "outlook", "ssn", "personal data", "pin number", "db_user",
+listOCR = ["examity", "proctor", "exam", "user", "pass", "confidential", "gmail", "outlook", "ssn", "personal data", "pin number", "db_user",
            "db_name", "private"]
 
 # List of strings that should be removed cus spam
@@ -132,7 +132,7 @@ parser.add_argument(
         '--start_code',
         help='6 or 7 character string made up of lowercase letters and numbers which is '
         'where the scraper will start. e.g. abcdef -> abcdeg -> abcdeh',
-        default='24bjh4r')
+        default='26qlaap')
 
 # set to something like 10 billion to just go forever, or until we are out of storage
 parser.add_argument(
@@ -184,7 +184,7 @@ if __name__ == '__main__':
 
         tic = time.perf_counter()
 
-        pool = multiprocessing.Pool(6)
+        pool = multiprocessing.Pool(4)
         pool.map(get_img, codes)
         pool.close()
 
