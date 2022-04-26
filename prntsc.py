@@ -171,7 +171,7 @@ if __name__ == '__main__':
 
     # Scrape images until --count is reached
     num_of_chunks = int(int(args.count) / 100)
-    count = 99
+    count = 100
 
     # run multiprocessing in chunks of 100
     for x in range(num_of_chunks):
