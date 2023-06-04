@@ -2,14 +2,11 @@
 
 ## Introduction
 
-The website [LightShot or prnt.sc](https://prnt.sc/) is a public image sharing website which is most well known for its quick and easy
-downloadable sharing utility activated by pressing the PrtScn key. It's a very useful tool, however I noticed that it stores images
-based on a sequential 6-digit code, meaning the 1.3 billion or so images uploaded there can be indexed programmatically quite easily.
-That is what this utility does.
+This tool is designed to programmatically index images from [LightShot or prnt.sc](https://prnt.sc/), a public image sharing website known for its quick, easy-to-use sharing utility activated by pressing the PrtScn key. Prnt.sc stores images based on a sequential 6-digit code, which means the 1.3 billion or so images uploaded there can be indexed with ease. This is exactly what our tool does.
 
 ## Pre-requisites
 
-This script was tested on the following python modules, however earlier/later versions may work fine:
+This script was tested with the following python modules. However, earlier or later versions may also work:
 
 ```
 - python 3.6
@@ -17,53 +14,54 @@ This script was tested on the following python modules, however earlier/later ve
 - beautifulsoup4 4.6.0
 - lxml 3.8.0
 - faker 8.11.0
-- pytesseract 0.3.8 (requires additional binary install on windows https://github.com/UB-Mannheim/tesseract/wiki)
-  if on windows you alse  need to change line 17 to the path of your tesseract install
+- pytesseract 0.3.8 (requires additional binary install on Windows [here](https://github.com/UB-Mannheim/tesseract/wiki). Windows users need to change line 17 to the path of their Tesseract install)
 - pillow 8.4.0
-
+- argparse
 - multiprocessing
 - time
 ```
 
 ## Using the Script
 
-The script takes 4 arguments as follows:
+The script takes several arguments as follows:
 
-* ```--start_code```: 6 or 7 character string made up of lowercase letters and numbers which is where the scraper will start.
-  * e.g. ```'lj9me9'```
-* ```--count```: The number of images to scrape. Needs to be a factor of 100.
-  * e.g. ```'100000'```
-* ```--output_path```: The path where images will be stored.
-  * e.g. ```'output_001/```
-* ```--save_all```: Enable saving files that dont match the spam list or the OCR list.
-  * True or False)  
-  
+* ```--starting_url```: The URL to scrape from.
+  * e.g., ```'https://prnt.sc/'```
+* ```--start_code```: 6 or 7 character string made up of lowercase letters and numbers, which indicates where the scraper will start.
+  * e.g., ```'ocpfx'```
+* ```--code_direction```: True for ascending, False for descending.
+  * e.g., ```True``` or ```False```
+* ```--count```: The number of images to scrape.
+  * e.g., ```'1000000'```
+* ```--save_all```: Enable saving all files, even those that don't match the OCR list or spam list.
+  * e.g., ```True``` or ```False```
+* ```--enable_regex```: Enable saving files that match the OCR list.
+  * e.g., ```True``` or ```False```
+* ```--output_path```: The path where images that match the regex will be stored.
+  * e.g., ```'regex/'```
+* ```--num_of_workers```: The number of workers to use for scraping.
+  * e.g., ```16```
+
 ## Uses/Explanation
 
-It can be very interesting to see what people upload to these sites, generally having sequential IDs of any type is bad, and the
-same applies here. People might not be aware that what they are uploading is visible to others, however prnt.sc/lightshot have
-not shown any inclination in wanting to change their site design.
+The tool allows you to browse through what people upload to these sites, raising awareness of the issues that come with sequential IDs. Users may not be aware that their uploads are visible to others, despite prnt.sc/lightshot's lack of indication to change their site design.
 
-The OCR deletes all files that either match the spam filter, or pass the spam filter but do not match the keywords.
+The OCR feature is designed to filter out spam and only save files that match certain keywords. 
 
-Spam filter is a list of strings defined as ```listToRemove```.
+- Spam filter, defined as ```listToRemove```, is a list of strings. 
+- Keywords to match, defined as ```listOcr```, is a list of strings.
 
-Keywords to match is a list of strings defined as ```listOcr```.
+These lists can be customized to match/reject any value.
 
-These lists can be changed to match/reject any value.
-
-
-This script uses multiprocessing with a pool of 5 workers, if you go over 10 you will get IP banned as 10 requests will
-be sent simultaneously.
+The script uses multiprocessing with a pool of workers. If the pool size exceeds 10, you might get IP banned as 10 requests will be sent simultaneously.
 
 ## TO DO 
 
-* Implement proxy system so pool workers can be greater than 10.
-* ~~Add option to save all files that pass spam filter but don't match OCR, currently only OCR matches are saved at this time~~
-* Keep images in memory until needing to be written to hard disk for performance reasons
-* Maybe implement OCR differently <- download 200 images, then run OCR, may be more performant
-* Implement exception handling as if anything goes wrong now it will just crash	
-	
+* Implement a proxy system to allow more than 10 workers in a pool.
+* Keep images in memory until they need to be written to the hard disk for performance reasons.
+* Consider a different OCR implementation - for instance, download 200 images, then run OCR. This might improve performance.
+* Implement exception handling to prevent crashes from unexpected issues.	
+
 ## Licensing
 
 This project is released under the MIT license, see LICENSE.md for more details.
