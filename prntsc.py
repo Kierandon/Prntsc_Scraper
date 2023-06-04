@@ -13,6 +13,7 @@ import multiprocessing
 import time
 import shutil
 from time import perf_counter
+import re
 
 # pytesseract.pytesseract.tesseract_cmd = '<path-to-tesseract-bin>'
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
@@ -43,12 +44,17 @@ code_chars = list(string.ascii_lowercase) + ["0", "1", "2", "3", "4", "5", "6", 
 base = len(code_chars)
 
 # List of strings that should be matched using OCR (pytesseract) - KD
-listOCR = ["examity", "proctor", "exam", "user", "pass", "confidential", "gmail", "outlook", "ssn", "personal data", "pin number", "db_user",
-           "db_name", "private"]
+listOCR = ["examity", "proctor", "exam", "user", "pass", "confidential", "gmail", "outlook", "ssn", "personal data",
+           "pin number", "db_user",
+           "db_name", "private", "confidential", "password", "username", "login", "email", "account", "credent"]
 
 # List of strings that should be removed cus spam
-listToRemove = ["btcx.one", "btc-ex", "bittrading", "bittr.org",  "jamesgr001", "btc to eth",
+listToRemove = ["btcx.one", "btc-ex", "bittrading", "bittr.org", "jamesgr001", "btc to eth",
                 "trade btc", "trade-btc"]
+
+# Convert lists to regular expressions
+regexOCR = re.compile('|'.join(listOCR))
+regexToRemove = re.compile('|'.join(listToRemove))
 
 
 # Converts digit to a letter based on character codes
@@ -56,6 +62,16 @@ def digit_to_char(digit):
     if digit < 10:
         return str(digit)
     return chr(ord('a') + digit - 10)
+
+
+def get_public_ip():
+    response = requests.get('https://api.ipify.org?format=json')
+    if response.status_code == 200:
+        data = response.json()
+        ip_address = data['ip']
+        return ip_address
+    else:
+        return "Unable to retrieve public IP"
 
 
 # Returns the string representation of a number in a given base. Credit: https://stackoverflow.com/a/2063535
@@ -71,25 +87,39 @@ def str_base(number, numberbase):
 # Returns the next code given the current code
 def next_code(curr_code):
     curr_code_num = int(curr_code, base)
-    return str_base(curr_code_num + 1, base)
+    if args.code_direction:
+        return str_base(curr_code_num + 1, base)
+    else:
+        return str_base(curr_code_num - 1, base)
 
 
-# Parses the HTML from the prnt.sc page to get the image URL.
+# Parses the HTML from the page to get the image URL.
 def get_img_url(urlcode):
-    html = requests.get(f"http://prnt.sc/{urlcode}", headers=headers).text
-    soup = BeautifulSoup(html, 'lxml')
-    img_url = soup.find_all('img', {'class': 'no-click screenshot-image'})
-    return urljoin("https://", img_url[0]['src'])
+    urlcode.upper()
+    url = args.starting_url + urlcode
+    html = requests.get(url, headers=headers).text
+    soup = BeautifulSoup(html, 'html.parser')
+    img_elements = soup.select('#content > div.view-main > div > a > img')
+    if img_elements:  # if the list is not empty
+        img_url = urljoin("https://", img_elements[0]['src'])
+        return img_url
+    else:
+        return None
 
 
 # Saves image from URL
 def get_img(path):
     t1_start = perf_counter()
-    response = requests.get(get_img_url(path.stem), headers=headers)
+    try:
+        response = requests.get(get_img_url(path.stem), headers=headers)
+    except:
+        print("No image")
+        print("URL: " + path.stem)
+        return
+
     path = path.with_suffix(mimetypes.guess_extension(response.headers["content-type"]))
     with open(path, 'wb') as f:
         f.write(response.content)
-        f.close()
 
     # open the image, then use pytesseract to convert that image to a string
     imagestring = pytesseract.image_to_string(Image.open(path))
@@ -97,58 +127,85 @@ def get_img(path):
     # Convert string to lowercase so can be matched with listOCR and listToRemoves
     imagestring = imagestring.lower()
 
-    # For every word in the spam filter
-    for z in listToRemove:
-        # If word in the string then remove the image
-        if z in imagestring:
+    if args.enable_regex:
+        # Checking for spam first
+        # If regexToRemove is found in the imagestring, delete the image
+        if regexToRemove.search(imagestring):
+            t1_stop = perf_counter()
             os.remove(path)
-            t1_stop = perf_counter()
-            print(f"REMOVED {path.name} -> {response.url} - SPAM FILTER - TIME TAKEN {t1_stop-t1_start}")
+            print(f"SPAM: Removed image {path.name} -> {response.url}, TIME TAKEN {t1_stop - t1_start}")
             return
-    # For every word in listOCR
-    for z in listOCR:
-        # If word in the string then keep the image
-        if z in imagestring:
+        # Checking for OCR next
+        # If regexOCR is found in the imagestring, save the image
+        elif regexOCR.search(imagestring):
             t1_stop = perf_counter()
-            print(f"Saved image {path.name} -> {response.url} - OCR MATCH, TIME TAKEN {t1_stop-t1_start}")
+            shutil.move(path, args.output_path + os.path.basename(path))
+            print(f"OCR MATCH: Saved image {path.name} -> {response.url}, TIME TAKEN {t1_stop - t1_start}")
             return
-        # If save_all is true then save the image
-        elif args.save_all:
-            t1_stop = perf_counter()
-            shutil.move(path, 'all_images/' + os.path.basename(path))
-            print(f"Saved image {path.name} -> {response.url} - SAVE ALL ENABLED, TIME TAKEN {t1_stop - t1_start}")
-            return
-        # Else remove the image
-        else:
-            os.remove(path)
-            t1_stop = perf_counter()
-            print(f"Removed image {path.name} -> {response.url} - NO OCR MATCH, TIME TAKEN {t1_stop-t1_start}")
-            return
+
+    # If save_all is true then save the image, this will work regardless of regex match or not.
+    if args.save_all:
+        t1_stop = perf_counter()
+        shutil.move(path, 'all_images/' + os.path.basename(path))
+        print(
+            f"SAVE ALL ENABLED: Saved image {path.name} -> {response.url}, TIME TAKEN {t1_stop - t1_start}")
+        return
+
+    t1_stop = perf_counter()
+    # If no matches found and save_all isn't true, delete image
+    os.remove(path)
+    print(f"NO OCR MATCH: Removed image {path.name} -> {response.url}, TIME TAKEN {t1_stop - t1_start}")
+    return
 
 
 # PARSE ARGUMENTS AND MAKE GLOBAL
 parser = parser.ArgumentParser()
-parser.add_argument(
-        '--start_code',
-        help='6 or 7 character string made up of lowercase letters and numbers which is '
-        'where the scraper will start. e.g. abcdef -> abcdeg -> abcdeh',
-        default='26qlaap')
 
-# set to something like 10 billion to just go forever, or until we are out of storage
+##URL to scrae
 parser.add_argument(
-        '--count',
-        help='The number of images to scrape.',
-        default='1000000')
+    '--starting_url',
+    help='The URL to scrape from.',
+    default='https://paste.pics/')
+
+##Start code options
+parser.add_argument(
+    '--start_code',
+    help='6 or 7 character string made up of lowercase letters and numbers which is '
+         'where the scraper will start. e.g. abcdef -> abcdeg -> abcdeh',
+    default='ocpfx')
+
+##Start code options
+parser.add_argument(
+    '--code_direction',
+    help='True for ascending, False for descending',
+    default=False)
+
+##IMAGE OPTIONS
+parser.add_argument(
+    '--count',
+    help='The number of images to scrape.',
+    default='1000000')
 
 parser.add_argument(
-        '--output_path',
-        help='The path where images will be stored.',
-        default='output/')
+    '--save_all',
+    help='Enable saving all files.',
+    default=True)
+
+##REGEX OPTIONS
+parser.add_argument(
+    '--enable_regex',
+    help='Enable saving files that match the OCR list.',
+    default=True)
 
 parser.add_argument(
-        '--save_all',
-        help='Enable saving files that dont match the spam list or the OCR list.',
-        default=True)
+    '--output_path',
+    help='The path where images that match the regex will be stored.',
+    default='regex/')
+
+parser.add_argument(
+    '--num_of_workers',
+    help='The number of workers to use for scraping.',
+    default=16)
 
 global args
 # noinspection PyRedeclaration
@@ -156,6 +213,10 @@ args = parser.parse_args()
 
 # START MAIN PROGRAM
 if __name__ == '__main__':
+
+    # timer
+    #print("Beginning scraping on IP Address:", get_public_ip())
+    #time.sleep(3)
 
     # Set output directory according to directory
     output_path = Path(args.output_path)
@@ -166,6 +227,10 @@ if __name__ == '__main__':
         all_images_path = Path("all_images")
         all_images_path.mkdir(exist_ok=True)
 
+    if args.enable_regex:
+        regex = Path("regex")
+        regex.mkdir(exist_ok=True)
+
     # Set start code according to arg
     code = args.start_code
 
@@ -173,23 +238,29 @@ if __name__ == '__main__':
     num_of_chunks = int(int(args.count) / 100)
     count = 100
 
+    # Create a pool of workers
+    pool = multiprocessing.Pool(int(args.num_of_workers))
+
     # run multiprocessing in chunks of 100
     for x in range(num_of_chunks):
 
         # create list of 100 codes
         codes = []
-        for y in range(count-99, count):
+        for y in range(count - 99, count):
             codes.append(output_path.joinpath(code))
             code = next_code(code)
 
         tic = time.perf_counter()
 
-        pool = multiprocessing.Pool(4)
-        pool.map(get_img, codes)
-        pool.close()
+        for _ in pool.imap_unordered(get_img, codes):
+            pass
 
         count += 100
 
         toc = time.perf_counter()
-        print(f'CHUNK COMPLETE IN {toc-tic}')
-    print('Printing complete')
+        print(f'CHUNK COMPLETE IN {toc - tic}')
+
+    pool.close()
+    pool.join()
+
+    print('Scraping complete')
