@@ -99,7 +99,7 @@ def get_img_url(urlcode):
     url = args.starting_url + urlcode
     html = requests.get(url, headers=headers).text
     soup = BeautifulSoup(html, 'html.parser')
-    img_elements = soup.select('#content > div.view-main > div > a > img')
+    img_elements = soup.select('#content > div.view-main > div > div.dm-image-wrap > div:nth-child(2) > a > img')
     if img_elements:  # if the list is not empty
         img_url = urljoin("https://", img_elements[0]['src'])
         return img_url
@@ -172,7 +172,7 @@ parser.add_argument(
     '--start_code',
     help='6 or 7 character string made up of lowercase letters and numbers which is '
          'where the scraper will start. e.g. abcdef -> abcdeg -> abcdeh',
-    default='ocpfx')
+    default='Q1IGN')
 
 ##Start code options
 parser.add_argument(
