@@ -11,6 +11,7 @@ import pytesseract
 from PIL import Image
 import multiprocessing
 import time
+from io import BytesIO
 import shutil
 from time import perf_counter
 import re
@@ -95,11 +96,10 @@ def next_code(curr_code):
 
 # Parses the HTML from the page to get the image URL.
 def get_img_url(urlcode):
-    urlcode.upper()
     url = args.starting_url + urlcode
     html = requests.get(url, headers=headers).text
     soup = BeautifulSoup(html, 'html.parser')
-    img_elements = soup.select('#content > div.view-main > div > div.dm-image-wrap > div:nth-child(2) > a > img')
+    img_elements = soup.select(args.selector)
     if img_elements:  # if the list is not empty
         img_url = urljoin("https://", img_elements[0]['src'])
         return img_url
@@ -111,49 +111,44 @@ def get_img_url(urlcode):
 def get_img(path):
     t1_start = perf_counter()
     try:
-        response = requests.get(get_img_url(path.stem), headers=headers)
+        response = requests.get(get_img_url(path.stem), headers=headers, timeout=100)
     except:
         print("No image")
         print("URL: " + path.stem)
         return
 
-    path = path.with_suffix(mimetypes.guess_extension(response.headers["content-type"]))
-    with open(path, 'wb') as f:
-        f.write(response.content)
+    # Store image in a BytesIO object
+    img_content = BytesIO(response.content)
 
-    # open the image, then use pytesseract to convert that image to a string
-    imagestring = pytesseract.image_to_string(Image.open(path))
+    # Guess image file extension
+    file_extension = mimetypes.guess_extension(response.headers["content-type"])
+    path = path.with_suffix(file_extension)
 
-    # Convert string to lowercase so can be matched with listOCR and listToRemoves
-    imagestring = imagestring.lower()
+    # Use pytesseract to convert image to string
+    imagestring = pytesseract.image_to_string(Image.open(img_content)).lower()
 
     if args.enable_regex:
-        # Checking for spam first
-        # If regexToRemove is found in the imagestring, delete the image
         if regexToRemove.search(imagestring):
             t1_stop = perf_counter()
-            os.remove(path)
             print(f"SPAM: Removed image {path.name} -> {response.url}, TIME TAKEN {t1_stop - t1_start}")
             return
-        # Checking for OCR next
-        # If regexOCR is found in the imagestring, save the image
         elif regexOCR.search(imagestring):
             t1_stop = perf_counter()
-            shutil.move(path, args.output_path + os.path.basename(path))
+            with open(path, 'wb') as f:
+                f.write(img_content.getvalue())  # Write image to disk
+            shutil.move(path, args.output_path + path.name + '.png')
             print(f"OCR MATCH: Saved image {path.name} -> {response.url}, TIME TAKEN {t1_stop - t1_start}")
             return
 
-    # If save_all is true then save the image, this will work regardless of regex match or not.
     if args.save_all:
         t1_stop = perf_counter()
-        shutil.move(path, 'all_images/' + os.path.basename(path))
-        print(
-            f"SAVE ALL ENABLED: Saved image {path.name} -> {response.url}, TIME TAKEN {t1_stop - t1_start}")
+        with open(path, 'wb') as f:
+            f.write(img_content.getvalue())  # Write image to disk
+        shutil.move(path, 'all_images/'  + path.name + '.png')
+        print(f"SAVE ALL ENABLED: Saved image {path.name} -> {response.url}, TIME TAKEN {t1_stop - t1_start}")
         return
 
     t1_stop = perf_counter()
-    # If no matches found and save_all isn't true, delete image
-    os.remove(path)
     print(f"NO OCR MATCH: Removed image {path.name} -> {response.url}, TIME TAKEN {t1_stop - t1_start}")
     return
 
@@ -172,7 +167,7 @@ parser.add_argument(
     '--start_code',
     help='6 or 7 character string made up of lowercase letters and numbers which is '
          'where the scraper will start. e.g. abcdef -> abcdeg -> abcdeh',
-    default='Q1IGN')
+    default='q17e1')
 
 ##Start code options
 parser.add_argument(
@@ -206,6 +201,11 @@ parser.add_argument(
     '--num_of_workers',
     help='The number of workers to use for scraping.',
     default=16)
+
+parser.add_argument(
+    '--selector',
+    help='The html selector to use to find the img element.',
+    default='#content > div.view-main > div > div.dm-image-wrap > div:nth-child(2) > a > img')
 
 global args
 # noinspection PyRedeclaration
